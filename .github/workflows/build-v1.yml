@@ -1,0 +1,48 @@
+name: build-v1
+
+# Reusable: dbt v1 (dbt-core 1.11, the version dbt-fabric supports) -> one static
+# HTML file, uploaded as the site-v1 artifact.
+on:
+  workflow_call:
+
+env:
+  DO_NOT_TRACK: "1" # no anonymous usage stats from the CLI or the published site
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: jaffle_shop
+    steps:
+      - uses: actions/checkout@v7
+
+      # Installs uv; uv installs the Python version from .python-version.
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      # --locked fails if uv.lock is out of date, so CI installs exactly the
+      # versions you ran locally.
+      - name: Install dbt 1.11
+        run: uv sync --locked
+
+      # build = seed + run + test. A failing test stops the deploy.
+      - name: dbt build
+        run: uv run dbt build
+
+      # --static embeds manifest.json and catalog.json into one HTML file.
+      - name: dbt docs generate
+        run: uv run dbt docs generate --static
+
+      - name: Assemble site
+        run: |
+          mkdir -p ../_site
+          cp target/static_index.html ../_site/index.html
+          cp ../web/staticwebapp.config.json ../_site/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site-v1
+          path: _site
+          retention-days: 7

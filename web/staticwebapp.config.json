@@ -1,0 +1,11 @@
+{
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  },
+  "mimeTypes": {
+    ".parquet": "application/vnd.apache.parquet",
+    ".sql": "text/plain"
+  }
+}

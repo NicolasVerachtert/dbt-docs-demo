@@ -1,0 +1,67 @@
+name: Preview
+
+# PR        -> deploy both sites to preview URLs, commented on the PR
+# PR closed -> remove the previews
+# Runs as the previewer identity, which can read the sites' deployment tokens and
+# nothing else. Terraform doesn't run here.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - "jaffle_shop/**"
+      - "web/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".python-version"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-v1:
+    if: github.event.action != 'closed'
+    uses: ./.github/workflows/build-v1.yml
+
+  build-v2:
+    if: github.event.action != 'closed'
+    uses: ./.github/workflows/build-v2.yml
+
+  deploy-v1:
+    needs: build-v1
+    permissions:
+      id-token: write # OIDC login to Azure
+      contents: read
+      pull-requests: write # preview URL comment
+    uses: ./.github/workflows/deploy-swa.yml
+    with:
+      site: v1
+      artifact: site-v1
+
+  deploy-v2:
+    needs: build-v2
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/deploy-swa.yml
+    with:
+      site: v2
+      artifact: site-v2
+
+  close:
+    if: github.event.action == 'closed'
+    strategy:
+      matrix:
+        site: [v1, v2]
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/deploy-swa.yml
+    with:
+      site: ${{ matrix.site }}
+      action: close

@@ -1,0 +1,88 @@
+name: deploy-swa
+
+# Reusable workflow: deploys a built site to an Azure Static Web App, or closes
+# a pull request's preview environment. Called by deploy.yml and preview.yml so
+# the deploy logic lives in one place.
+on:
+  workflow_call:
+    inputs:
+      site:
+        description: Which docs site to deploy to (v1 or v2), matched against the Static Web App's `site` tag.
+        required: true
+        type: string
+      artifact:
+        description: Name of the uploaded build artifact holding the site. Not needed for close.
+        required: false
+        type: string
+        default: ""
+      action:
+        description: "upload (deploy the site) or close (remove the PR preview)."
+        required: false
+        type: string
+        default: upload
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download site
+        if: inputs.action == 'upload'
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: _site
+
+      # Pull requests log in as the previewer, which can only read deployment
+      # tokens. Everything else logs in as the deployer.
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ github.event_name == 'pull_request' && vars.AZURE_PREVIEW_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The deploy action needs the site's deployment token. Instead of storing it
+      # as a long-lived GitHub secret, read it at deploy time with the OIDC login
+      # and mask it so it never appears in logs.
+      - name: Get deployment token
+        env:
+          SITE: ${{ inputs.site }}
+          RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: |
+          name="$(az staticwebapp list -g "$RG" --query "[?tags.site=='$SITE'].name | [0]" -o tsv)"
+          if [ -z "$name" ]; then
+            echo "::error::No Static Web App tagged site=$SITE in $RG. Has Deploy to PRO run on main yet?"
+            exit 1
+          fi
+          token="$(az staticwebapp secrets list -n "$name" -g "$RG" --query properties.apiKey -o tsv)"
+          if [ -z "$token" ]; then
+            echo "::error::Could not read the deployment token for $name."
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "SWA_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        id: deploy
+        if: inputs.action == 'upload'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: upload
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }} # lets the action comment the preview URL on PRs
+          production_branch: main
+          app_location: _site
+          output_location: ""
+          skip_app_build: true
+          skip_api_build: true
+
+      - name: Close preview environment
+        if: inputs.action == 'close'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: close
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
+          app_location: ""
+
+      - name: Summary
+        if: inputs.action == 'upload'
+        run: echo "Deployed to ${{ steps.deploy.outputs.static_web_app_url }}" >> "$GITHUB_STEP_SUMMARY"

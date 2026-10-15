@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+# az account show --query "{tenant_id:tenantId, subscription_id:id}"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+github_owner = "your-github-user"
+github_repo  = "jaffle-docs-azure"
+
+# Optional
+# location = "westeurope"

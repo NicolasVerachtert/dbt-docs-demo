@@ -1,0 +1,55 @@
+name: Deploy
+
+# Reusable: applies Terraform for one environment, then builds both docs sites
+# and ships them. Terraform is applied before the sites are deployed, so a new
+# site exists by the time its deploy runs.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Target environment (a folder under terraform/environments)
+        type: string
+        required: true
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      ARM_USE_OIDC: true
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Initialize
+        working-directory: terraform/environments/${{ inputs.environment }}
+        run: terraform init -input=false
+
+      - name: Apply
+        working-directory: terraform/environments/${{ inputs.environment }}
+        run: terraform apply -auto-approve -input=false
+
+  build-v1:
+    uses: ./.github/workflows/build-v1.yml
+
+  build-v2:
+    uses: ./.github/workflows/build-v2.yml
+
+  deploy-v1:
+    needs: [terraform, build-v1]
+    uses: ./.github/workflows/deploy-swa.yml
+    with:
+      site: v1
+      artifact: site-v1
+
+  deploy-v2:
+    needs: [terraform, build-v2]
+    uses: ./.github/workflows/deploy-swa.yml
+    with:
+      site: v2
+      artifact: site-v2
