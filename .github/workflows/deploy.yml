@@ -1,15 +1,27 @@
 name: Deploy
 
-# Reusable: applies Terraform for one environment, then builds both docs sites
-# and ships them. Terraform is applied before the sites are deployed, so a new
-# site exists by the time its deploy runs.
 on:
-  workflow_call:
-    inputs:
-      environment:
-        description: Target environment (a folder under terraform/environments)
-        type: string
-        required: true
+  push:
+    branches:
+      - main
+    paths:
+      - "jaffle_shop/**"
+      - "web/**"
+      - "terraform/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# Do not cancel a running deploy. A stopped terraform apply keeps the state locked.
+concurrency:
+  group: deploy-pro
+  cancel-in-progress: false
+
+env:
+  DO_NOT_TRACK: "1" # Do not send usage data from dbt or from the sites.
 
 jobs:
   terraform:
@@ -19,6 +31,12 @@ jobs:
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    defaults:
+      run:
+        working-directory: terraform/environments/pro
+    outputs:
+      resource_group_name: ${{ steps.outputs.outputs.resource_group_name }}
+      site_names: ${{ steps.outputs.outputs.site_names }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -27,29 +45,154 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Initialize
-        working-directory: terraform/environments/${{ inputs.environment }}
         run: terraform init -input=false
 
       - name: Apply
-        working-directory: terraform/environments/${{ inputs.environment }}
         run: terraform apply -auto-approve -input=false
 
+      - name: Read outputs
+        id: outputs
+        run: |
+          echo "resource_group_name=$(terraform output -raw resource_group_name)" >> "$GITHUB_OUTPUT"
+          echo "site_names=$(terraform output -json site_names | jq -c .)" >> "$GITHUB_OUTPUT"
+
   build-v1:
-    uses: ./.github/workflows/build-v1.yml
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12"
+      DBT_CORE_VERSION: "1.11.15" # dbt-fabric supports dbt-core 1.11.
+      DBT_DUCKDB_VERSION: "1.11.0"
+    defaults:
+      run:
+        working-directory: jaffle_shop
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
+
+      - name: Install dbt v1
+        run: |
+          uv tool install --python ${PYTHON_VERSION} "dbt-core==${DBT_CORE_VERSION}" --with "dbt-duckdb==${DBT_DUCKDB_VERSION}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+
+      - name: Show dbt version
+        run: dbt --version
+
+      - name: Build models
+        run: dbt build
+
+      # --static puts the docs into one HTML file.
+      - name: Generate docs
+        run: dbt docs generate --static
+
+      - name: Assemble site
+        run: |
+          mkdir -p ../_site
+          cp target/static_index.html ../_site/index.html
+          cp ../web/staticwebapp.config.json ../_site/
+
+      - name: Upload site
+        uses: actions/upload-artifact@v7
+        with:
+          name: site-v1
+          path: _site
+          retention-days: 7
 
   build-v2:
-    uses: ./.github/workflows/build-v2.yml
+    runs-on: ubuntu-latest
+    env:
+      # Use dbt, not dbt-oss. dbt-oss does not show column-level lineage.
+      DBT_VERSION: "2.0.8"
+    defaults:
+      run:
+        working-directory: jaffle_shop
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
 
-  deploy-v1:
-    needs: [terraform, build-v1]
-    uses: ./.github/workflows/deploy-swa.yml
-    with:
-      site: v1
-      artifact: site-v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
 
-  deploy-v2:
-    needs: [terraform, build-v2]
-    uses: ./.github/workflows/deploy-swa.yml
-    with:
-      site: v2
-      artifact: site-v2
+      - name: Install dbt v2
+        run: |
+          uv tool install "dbt==${DBT_VERSION}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+
+      - name: Show dbt version
+        run: dbt --version
+
+      # --static-analysis strict gives column-level lineage.
+      # --write-index writes the metadata that the docs site reads.
+      - name: Build models
+        run: dbt build --write-index --static-analysis strict
+
+      # --no-compile keeps the index from the build step. A new compile removes the lineage.
+      - name: Generate docs
+        run: dbt docs generate --no-compile --output-dir ../_site
+
+      - name: Assemble site
+        run: cp ../web/staticwebapp.config.json ../_site/
+
+      - name: Upload site
+        uses: actions/upload-artifact@v7
+        with:
+          name: site-v2
+          path: _site
+          retention-days: 7
+
+  deploy:
+    needs: [terraform, build-v1, build-v2]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        site: [v1, v2]
+    steps:
+      - name: Download site
+        uses: actions/download-artifact@v8
+        with:
+          name: site-${{ matrix.site }}
+          path: _site
+
+      - name: Log in to Azure
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Read the token during the deploy. Do not keep it as a GitHub secret.
+      - name: Get deployment token
+        env:
+          NAME: ${{ fromJSON(needs.terraform.outputs.site_names)[matrix.site] }}
+          RG: ${{ needs.terraform.outputs.resource_group_name }}
+        run: |
+          token="$(az staticwebapp secrets list -n "$NAME" -g "$RG" --query properties.apiKey -o tsv)"
+          if [ -z "$token" ]; then
+            echo "::error::Cannot read the deployment token of $NAME in $RG."
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "SWA_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Deploy site
+        id: deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: upload
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
+          production_branch: main
+          app_location: _site
+          output_location: ""
+          skip_app_build: true
+          skip_api_build: true
+
+      - name: Show URL
+        env:
+          URL: ${{ steps.deploy.outputs.static_web_app_url }}
+        run: echo "Deployed ${{ matrix.site }} to $URL" >> "$GITHUB_STEP_SUMMARY"

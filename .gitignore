@@ -6,20 +6,14 @@ jaffle_shop/.user.yml
 *.duckdb
 *.duckdb.wal
 
-# assembled site
+# Built site
 _site/
 
-# python
-.venv/
-__pycache__/
-
-# terraform: bootstrap's local state holds the state storage account's access
-# keys, never commit it
+# Terraform. Keep .terraform.lock.hcl in git.
 .terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
 crash.log
-terraform.tfvars
 
 .DS_Store

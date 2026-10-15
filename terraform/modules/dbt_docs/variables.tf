@@ -1,24 +1,24 @@
 variable "resource_group_name" {
-  description = "Name of the resource group to deploy to."
+  description = "Name of the resource group for the sites."
   type        = string
 }
 
 variable "location" {
-  description = "Azure region for the Static Web App resources. The sites themselves are served from a global edge network."
+  description = "Azure region of the Static Web Apps. Azure serves the sites from a global network."
   type        = string
 
   validation {
     condition     = contains(["westeurope", "westus2", "centralus", "eastus2", "eastasia"], var.location)
-    error_message = "Static Web Apps is only available in westeurope, westus2, centralus, eastus2 and eastasia."
+    error_message = "Use a Static Web Apps region: westeurope, westus2, centralus, eastus2 or eastasia."
   }
 }
 
 variable "environment" {
-  description = "Deployment environment."
+  description = "Name of the environment: dev or pro."
   type        = string
 
   validation {
     condition     = contains(["dev", "pro"], var.environment)
-    error_message = "Invalid environment"
+    error_message = "Use dev or pro."
   }
 }

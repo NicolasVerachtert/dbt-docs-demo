@@ -8,7 +8,7 @@ terraform {
     }
   }
 
-  # Created by terraform/bootstrap.
+  # You create these resources manually. Refer to the README.
   backend "azurerm" {
     resource_group_name  = "rg-jaffle-docs-tfstate"
     storage_account_name = "stjaffledocstfstate"
@@ -21,8 +21,7 @@ terraform {
 provider "azurerm" {
   features {}
 
-  # The pipeline identity only has Contributor on the resource group, so it
-  # can't register resource providers. terraform/bootstrap already did.
+  # The CI identity cannot register resource providers. You register Microsoft.Web manually.
   resource_provider_registrations = "none"
 }
 
@@ -34,6 +33,8 @@ module "dbt_docs" {
   source = "../../modules/dbt_docs"
 
   resource_group_name = data.azurerm_resource_group.dbt_docs.name
-  location            = data.azurerm_resource_group.dbt_docs.location
   environment         = "pro"
+
+  # westeurope does not accept new subscriptions. Azure serves the sites from a global network.
+  location = "eastus2"
 }

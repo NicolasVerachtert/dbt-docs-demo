@@ -9,7 +9,7 @@ terraform {
   }
 }
 
-# Free tier: no cost, no overage billing possible.
+# The Free tier has no costs.
 resource "azurerm_static_web_app" "docs" {
   for_each = local.sites
 
@@ -19,12 +19,17 @@ resource "azurerm_static_web_app" "docs" {
   sku_tier            = "Free"
   sku_size            = "Free"
 
-  # deploy-swa.yml finds the site by its `site` tag, so the workflows don't
-  # need to know the resource names.
+  preview_environments_enabled = false
+
   tags = {
     site        = each.key
     dbt_version = each.value
     environment = var.environment
     managed_by  = "terraform"
+  }
+
+  # A deploy with the deployment token sets these values. Terraform must not reset them.
+  lifecycle {
+    ignore_changes = [repository_url, repository_branch]
   }
 }
