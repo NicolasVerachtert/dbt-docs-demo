@@ -1,0 +1,9 @@
+state_code,state_name,sales_region
+ACT,Australian Capital Territory,East
+NSW,New South Wales,East
+NT,Northern Territory,North
+QLD,Queensland,North
+SA,South Australia,South
+TAS,Tasmania,South
+VIC,Victoria,South
+WA,Western Australia,West

@@ -1,0 +1,40 @@
+version: 2
+
+# A group is a team that owns a set of models. The overview page shows the
+# owner and the data steward of each group.
+
+groups:
+  - name: data_platform
+    description: Owns the raw, staging and intermediate layers. Keeps the pipeline running.
+    owner:
+      name: Data Platform team
+      email: data-platform@jaffle-shop.example
+      slack: '#data-platform'
+
+  - name: sales
+    description: Owns the order, order line and product data.
+    owner:
+      name: Sales Operations
+      email: sales-ops@jaffle-shop.example
+      slack: '#sales-ops'
+
+  - name: customer_insights
+    description: Owns the customer data, the segments and the retention cohorts.
+    owner:
+      name: Customer Insights
+      email: customer-insights@jaffle-shop.example
+      slack: '#customer-insights'
+
+  - name: finance
+    description: Owns the payment and revenue data. Approves all revenue definitions.
+    owner:
+      name: Finance
+      email: finance@jaffle-shop.example
+      slack: '#finance-data'
+
+  - name: marketing
+    description: Owns the marketing spend data and the CRM audience.
+    owner:
+      name: Marketing
+      email: marketing@jaffle-shop.example
+      slack: '#marketing-analytics'

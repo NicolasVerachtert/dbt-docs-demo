@@ -1,0 +1,101 @@
+version: 2
+
+# Intermediate models contain joins and calculations that more than one mart
+# uses. Business users do not use these models directly.
+
+models:
+  - name: int_order_items_priced
+    description: |
+      Order lines with the product category, the cost and the amounts without GST. One row for each order line.
+
+      The marts `orders`, `order_items`, `products` and `monthly_revenue` use this model.
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+    columns:
+      - name: order_item_id
+        description: '{{ doc("order_item_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+      - name: product_id
+        description: '{{ doc("product_id") }}'
+      - name: product_category
+        description: '{{ doc("product_category") }}'
+        data_tests:
+          - not_null:
+              description: Each order line has a known product. If this test fails, the product catalogue extract is not complete.
+      - name: is_gift_card
+        description: '{{ doc("is_gift_card") }}'
+      - name: quantity
+        description: Number of units.
+      - name: unit_price
+        description: '{{ doc("unit_price") }}'
+      - name: gross_amount
+        description: '{{ doc("gross_amount") }}'
+      - name: discount_amount
+        description: '{{ doc("discount_amount") }}'
+      - name: net_amount
+        description: '{{ doc("net_amount") }}'
+        data_tests:
+          - not_negative
+      - name: net_amount_excl_gst
+        description: '{{ doc("net_amount_excl_gst") }}'
+      - name: cost_amount
+        description: '{{ doc("cost_amount") }}'
+
+  - name: int_order_payments
+    description: |
+      Successful payments for each order, with one amount column for each payment method. One row for each order with one or more payment attempts.
+
+      The project variable `payment_methods` gives the list of payment method columns.
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+    columns:
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: credit_card_amount
+        description: '{{ doc("payment_method_amount") }}'
+      - name: debit_card_amount
+        description: '{{ doc("payment_method_amount") }}'
+      - name: digital_wallet_amount
+        description: '{{ doc("payment_method_amount") }}'
+      - name: buy_now_pay_later_amount
+        description: '{{ doc("payment_method_amount") }}'
+      - name: gift_card_amount
+        description: '{{ doc("payment_method_amount") }}'
+      - name: amount_paid
+        description: '{{ doc("amount_paid") }}'
+      - name: payment_fee_amount
+        description: '{{ doc("payment_fee_amount") }}'
+      - name: successful_payment_count
+        description: Number of successful payments for the order.
+      - name: failed_payment_count
+        description: Number of failed payment attempts for the order.
+
+  - name: int_order_refunds
+    description: Refunds for each order. One row for each order with one or more refunds.
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+    columns:
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: refund_amount
+        description: '{{ doc("refund_amount") }}'
+      - name: refund_count
+        description: Number of refunds for the order.
+      - name: first_refund_date
+        description: Date (AEST) of the first refund for the order.

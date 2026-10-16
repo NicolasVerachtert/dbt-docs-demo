@@ -1,0 +1,376 @@
+version: 2
+
+# Staging models clean the raw data. Each staging model reads one raw table.
+# A staging model does these steps only:
+# - change column names to the standard names.
+# - change data types and units (cents to dollars).
+# - make values consistent (upper-case codes, no spaces).
+# Business logic is not permitted in this layer.
+
+models:
+  - name: stg_customers
+    description: |
+      Customer accounts from the web shop, with clean values. One row for each customer.
+
+      **Cleaning steps**
+      - The state becomes the official state code. The raw value can be the code (`nsw`) or the full name (`New South Wales`).
+      - The email address is lower-case, without spaces.
+      - The phone number is in E.164 format, for example `+61412345678`.
+    config:
+      meta:
+        classification: restricted
+        contains_pii: true
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "phone is null or regexp_matches(phone, '^\\+614[0-9]{8}$')"
+          description: Each phone number is an Australian mobile number in E.164 format.
+    columns:
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: first_name
+        description: First name of the customer.
+        classifiers: [pii.name]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: last_name
+        description: Last name of the customer.
+        classifiers: [pii.name]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: email
+        description: Email address of the customer. Lower-case, without spaces.
+        classifiers: [pii.email]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+        data_tests:
+          - unique
+          - not_null
+      - name: phone
+        description: Mobile number of the customer in E.164 format, for example `+61412345678`. NULL if the customer did not give a number.
+        classifiers: [pii.phone]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: city
+        description: City of the delivery address.
+      - name: state_code
+        description: '{{ doc("state_code") }}'
+        data_tests:
+          - not_null:
+              description: |
+                Known issue. The web shop did not require the state before 2024-04-01. Some customers from that period have no state.
+                The owner accepts this issue. The test gives a warning. It gives an error if more than 50 customers have no state.
+              config:
+                severity: error
+                warn_if: ">0"
+                error_if: ">50"
+          - relationships:
+              arguments:
+                to: ref('au_states')
+                field: state_code
+      - name: postcode
+        description: Postcode of the delivery address.
+        classifiers: [pii.location]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: acquisition_channel
+        description: '{{ doc("acquisition_channel") }}'
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['organic_search', 'paid_search', 'paid_social', 'affiliate', 'referral', 'direct']
+      - name: is_marketing_opt_in
+        description: '{{ doc("is_marketing_opt_in") }}'
+        data_tests:
+          - not_null
+      - name: created_at
+        description: Date and time (AEST) when the customer created the account.
+      - name: signup_date
+        description: '{{ doc("signup_date") }}'
+
+  - name: stg_orders
+    description: |
+      Orders from the web shop and the mobile app. One row for each order.
+
+      **Cleaning steps**
+      - `user_id` becomes `customer_id`.
+      - The coupon code is upper-case, without spaces.
+      - The shipping fee changes from cents to dollars.
+    config:
+      meta:
+        classification: internal
+        contains_pii: false
+    columns:
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
+      - name: order_date
+        description: '{{ doc("order_date") }}'
+        data_tests:
+          - not_null
+      - name: status
+        description: '{{ doc("order_status") }}'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['placed', 'shipped', 'completed', 'return_pending', 'returned']
+      - name: sales_channel
+        description: '{{ doc("sales_channel") }}'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['web', 'app']
+      - name: coupon_code
+        description: '{{ doc("coupon_code") }}'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['WELCOME10', 'WINTER15', 'BLACKFRIDAY20']
+              description: A new coupon code needs approval from Finance. The test gives a warning for an unknown code.
+              config:
+                severity: warn
+      - name: shipping_amount
+        description: '{{ doc("shipping_amount") }}'
+        data_tests:
+          - not_negative
+
+  - name: stg_order_items
+    description: |
+      Order lines from the web shop. One row for each product in an order.
+
+      **Cleaning steps**
+      - The unit price and the discount change from cents to dollars.
+    config:
+      meta:
+        classification: internal
+        contains_pii: false
+    columns:
+      - name: order_item_id
+        description: '{{ doc("order_item_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: product_id
+        description: '{{ doc("product_id") }}'
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_products')
+                field: product_id
+      - name: quantity
+        description: Number of units.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 20
+      - name: unit_price
+        description: '{{ doc("unit_price") }}'
+        data_tests:
+          - not_negative
+      - name: discount_amount
+        description: '{{ doc("discount_amount") }}'
+        data_tests:
+          - not_negative
+
+  - name: stg_products
+    description: |
+      Product catalogue from the web shop. One row for each product.
+
+      **Cleaning steps**
+      - The price and the cost change from cents to dollars.
+      - `is_returnable` comes from the product category.
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+    columns:
+      - name: product_id
+        description: '{{ doc("product_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: sku
+        description: '{{ doc("sku") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: product_name
+        description: Name of the product on the web shop.
+      - name: product_category
+        description: '{{ doc("product_category") }}'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['kitchenware', 'pantry', 'coffee_and_tea', 'merchandise', 'gift_cards']
+      - name: list_price
+        description: '{{ doc("list_price") }}'
+        data_tests:
+          - not_null
+          - not_negative
+      - name: unit_cost
+        description: '{{ doc("unit_cost") }}'
+        config:
+          meta: {classification: confidential}
+        data_tests:
+          - not_null
+          - not_negative
+      - name: is_returnable
+        description: '{{ doc("is_returnable") }}'
+      - name: is_active
+        description: True if the web shop sells the product now.
+      - name: launched_on
+        description: Date when the product came on the web shop.
+
+  - name: stg_payments
+    description: |
+      Payment attempts from the payment service provider (PSP). One row for each attempt. Includes failed attempts.
+
+      **Cleaning steps**
+      - The amount changes from cents to dollars.
+      - `status` becomes `payment_status`.
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+    columns:
+      - name: payment_id
+        description: '{{ doc("payment_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: payment_method
+        description: '{{ doc("payment_method") }}'
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('payment_methods')
+                field: payment_method
+              description: Each payment method must be in the seed `payment_methods`. Else, the payment fee is not known.
+      - name: payment_status
+        description: '{{ doc("payment_attempt_status") }}'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['success', 'failed']
+      - name: amount
+        description: Amount of the payment attempt, in AUD.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0.01
+      - name: created_at
+        description: Date and time (AEST) of the payment attempt.
+      - name: payment_date
+        description: Date (AEST) of the payment attempt.
+
+  - name: stg_refunds
+    description: |
+      Refunds from the payment service provider (PSP). One row for each refund.
+
+      **Cleaning steps**
+      - The amount changes from cents to dollars.
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+    columns:
+      - name: refund_id
+        description: Identifier of the refund at the PSP.
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: refund_amount
+        description: Refund amount, in AUD. Includes GST.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0.01
+      - name: refund_reason
+        description: '{{ doc("refund_reason") }}'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['changed_mind', 'damaged_item', 'wrong_item', 'late_delivery']
+      - name: refunded_at
+        description: Date and time (AEST) when the PSP paid the refund.
+      - name: refund_date
+        description: Date (AEST) when the PSP paid the refund.
+
+  - name: stg_marketing_spend
+    description: |
+      Monthly marketing spend for each paid channel. One row for each month and channel.
+
+      **Cleaning steps**
+      - The channel name becomes the channel code, for example `Paid social` becomes `paid_social`.
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['spend_month', 'acquisition_channel']
+    columns:
+      - name: spend_month
+        description: First day of the month.
+        data_tests:
+          - not_null
+      - name: acquisition_channel
+        description: '{{ doc("acquisition_channel") }}'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['paid_search', 'paid_social', 'affiliate', 'referral']
+              description: |
+                The marketing team types the channel names in a spreadsheet. If this test fails, the spreadsheet has a new or misspelled channel name.
+                Ask the marketing team to correct the spreadsheet.
+      - name: spend_amount
+        description: Marketing spend in AUD. Excludes GST.
+        data_tests:
+          - not_null
+          - not_negative

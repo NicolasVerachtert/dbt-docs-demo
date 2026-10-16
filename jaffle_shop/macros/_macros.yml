@@ -1,0 +1,28 @@
+version: 2
+
+macros:
+  - name: cents_to_dollars
+    description: Changes an amount in cents to an amount in dollars with 2 decimals. The source systems keep amounts in cents.
+    arguments:
+      - name: column_name
+        type: string
+        description: The column or expression with the amount in cents.
+
+  - name: clean_text_code
+    description: Changes free text to a code. It removes spaces at the start and end, writes lower-case letters, and changes spaces to underscores. For example, `Paid social` becomes `paid_social`.
+    arguments:
+      - name: column_name
+        type: string
+        description: The column or expression with the text.
+
+  - name: generate_schema_name
+    description: |
+      Gives the schema name of a model. This project uses the custom schema name as it is: `raw`, `staging`, `intermediate` or `marts`.
+      The default dbt macro adds the target schema as a prefix, for example `main_staging`.
+    arguments:
+      - name: custom_schema_name
+        type: string
+        description: The schema from the `schema` config.
+      - name: node
+        type: any
+        description: The node that dbt builds.

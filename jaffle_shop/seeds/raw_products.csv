@@ -1,0 +1,36 @@
+id,sku,name,category,price,cost,is_active,launched_on
+1,KIT-001,Classic Jaffle Iron,kitchenware,3995,1650,true,2022-02-16
+2,KIT-002,Double Jaffle Iron,kitchenware,5495,2300,true,2023-08-10
+3,KIT-003,Electric Jaffle Maker,kitchenware,9445,4100,true,2023-11-07
+4,KIT-004,Cast Iron Jaffle Iron,kitchenware,6995,3050,true,2021-11-03
+5,KIT-005,Campfire Jaffle Iron,kitchenware,4495,1900,true,2023-02-24
+6,KIT-006,Jaffle Iron Cleaning Brush,kitchenware,1295,380,true,2023-03-27
+7,KIT-007,Bread Knife,kitchenware,3495,1400,true,2023-04-18
+8,KIT-008,Jaffle Iron Gift Set,kitchenware,11995,5600,true,2023-07-13
+9,KIT-009,Mini Jaffle Iron,kitchenware,2995,1300,false,2021-11-08
+10,PAN-001,White Sandwich Loaf,pantry,650,260,true,2023-08-20
+11,PAN-002,Sourdough Loaf,pantry,895,380,true,2022-01-09
+12,PAN-003,Gluten-free Loaf,pantry,1095,520,true,2021-11-04
+13,PAN-004,Baked Beans Can,pantry,450,150,true,2022-05-23
+14,PAN-005,Spaghetti Can,pantry,450,150,true,2023-09-04
+15,PAN-006,Aged Cheddar Block,pantry,1400,610,true,2022-04-07
+16,PAN-007,Ham Off the Bone,pantry,1645,820,true,2022-09-26
+17,PAN-008,Tomato Relish,pantry,895,290,true,2023-10-31
+18,PAN-009,Apple Pie Filling,pantry,795,270,true,2023-11-02
+19,PAN-010,Chilli Jam,pantry,995,330,true,2023-08-29
+20,PAN-011,Curry Mince Kit,pantry,1695,780,true,2023-04-23
+21,PAN-012,Spiced Pear Filling,pantry,895,300,false,2023-04-08
+22,COF-001,House Blend Coffee Beans 500 g,coffee_and_tea,2695,1050,true,2022-07-03
+23,COF-002,Single Origin Coffee Beans 250 g,coffee_and_tea,2155,880,true,2022-03-26
+24,COF-003,Decaf Coffee Beans 250 g,coffee_and_tea,1795,790,true,2023-11-05
+25,COF-004,English Breakfast Tea,coffee_and_tea,1095,340,true,2022-05-07
+26,COF-005,Chai Tea,coffee_and_tea,1295,420,true,2023-05-13
+27,COF-006,Hot Chocolate Mix,coffee_and_tea,1395,460,true,2021-11-29
+28,MER-001,Jaffle Shop Apron,merchandise,3495,1100,true,2022-02-05
+29,MER-002,Jaffle Shop Mug,merchandise,1995,520,true,2021-12-14
+30,MER-003,Jaffle Shop Tote Bag,merchandise,1495,410,true,2022-05-23
+31,MER-004,Jaffle Shop T-shirt,merchandise,3995,1250,true,2022-09-29
+32,MER-005,Jaffle Recipe Book,merchandise,2995,980,true,2023-04-21
+33,MER-006,Jaffle Shop Cap,merchandise,2495,820,false,2022-08-30
+34,GFT-001,Gift Card AUD 50,gift_cards,5000,0,true,2022-04-08
+35,GFT-002,Gift Card AUD 100,gift_cards,10000,0,true,2023-02-21

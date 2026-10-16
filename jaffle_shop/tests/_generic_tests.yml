@@ -1,0 +1,51 @@
+version: 2
+
+macros:
+  - name: test_accepted_range
+    description: |
+      Fails if a value is less than `min_value` or more than `max_value`. The limits are included in the range. NULL values pass.
+    arguments:
+      - name: model
+        type: relation
+        description: The model to test. dbt sets this argument.
+      - name: column_name
+        type: string
+        description: The column to test. dbt sets this argument.
+      - name: min_value
+        type: optional[float]
+        description: The lowest permitted value. Optional.
+      - name: max_value
+        type: optional[float]
+        description: The highest permitted value. Optional.
+
+  - name: test_not_negative
+    description: Fails if a value is less than zero. Zero and NULL values pass.
+    arguments:
+      - name: model
+        type: relation
+        description: The model to test. dbt sets this argument.
+      - name: column_name
+        type: string
+        description: The column to test. dbt sets this argument.
+
+  - name: test_expression_is_true
+    description: |
+      Fails if a SQL expression is false for a row. Use it for a business rule that uses more than one column.
+      For example: `order_total = net_item_amount + shipping_amount`.
+    arguments:
+      - name: model
+        type: relation
+        description: The model to test. dbt sets this argument.
+      - name: expression
+        type: string
+        description: A SQL expression that must be true for each row.
+
+  - name: test_unique_combination_of_columns
+    description: Fails if two or more rows have the same values in all the given columns. Use it for a table with a primary key of more than one column.
+    arguments:
+      - name: model
+        type: relation
+        description: The model to test. dbt sets this argument.
+      - name: combination_of_columns
+        type: list[string]
+        description: The columns that together identify a row.

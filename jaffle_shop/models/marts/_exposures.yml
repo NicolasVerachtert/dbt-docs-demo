@@ -1,0 +1,115 @@
+version: 2
+
+# Exposures are the reports, tools and applications that use the marts.
+# The lineage graph shows them at the end of the flow.
+
+exposures:
+  - name: executive_sales_dashboard
+    label: Executive sales dashboard
+    type: dashboard
+    maturity: high
+    url: https://bi.jaffle-shop.example/dashboards/executive-sales
+    description: |
+      Daily sales, orders and margin for the management team.
+
+      **Users:** management team, Head of Sales Operations.
+      **Update:** every day at 06:00 AEST.
+    owner:
+      name: Sales Operations
+      email: sales-ops@jaffle-shop.example
+    depends_on:
+      - ref('orders')
+      - ref('products')
+      - ref('monthly_revenue')
+    config:
+      tags: [executive]
+      meta:
+        tool: Power BI
+        classification: confidential
+
+  - name: finance_month_end_close
+    label: Finance month-end close
+    type: analysis
+    maturity: high
+    url: https://bi.jaffle-shop.example/reports/month-end-close
+    description: |
+      Workbook for the month-end close. Finance compares the revenue, the refunds and the payment fees with the general ledger.
+
+      **Users:** Finance.
+      **Update:** on the 3rd working day of each month.
+    owner:
+      name: Finance
+      email: finance@jaffle-shop.example
+    depends_on:
+      - ref('monthly_revenue')
+      - ref('payments')
+      - ref('orders')
+    config:
+      meta:
+        tool: Excel
+        classification: confidential
+
+  - name: marketing_performance_dashboard
+    label: Marketing performance dashboard
+    type: dashboard
+    maturity: medium
+    url: https://bi.jaffle-shop.example/dashboards/marketing-performance
+    description: |
+      Acquisition cost, return on ad spend and retention for each marketing channel.
+
+      **Users:** Marketing.
+      **Update:** every day at 06:00 AEST. The spend updates once each month.
+    owner:
+      name: Marketing
+      email: marketing@jaffle-shop.example
+    depends_on:
+      - ref('marketing_channel_performance')
+      - ref('customer_cohorts')
+    config:
+      meta:
+        tool: Power BI
+        classification: confidential
+
+  - name: crm_audience_sync
+    label: CRM audience sync
+    type: application
+    maturity: high
+    description: |
+      Sends the customers who agree to receive marketing email to the CRM tool. The CRM tool sends the newsletters and the campaigns.
+
+      **Personal data leaves the data platform.** The CRM tool is an external processor.
+      The data processing agreement with the vendor is in the contract register.
+
+      **Update:** every day at 07:00 AEST.
+    owner:
+      name: Marketing
+      email: marketing@jaffle-shop.example
+    depends_on:
+      - ref('crm_audience')
+    config:
+      tags: [pii]
+      meta:
+        tool: CRM tool (external processor)
+        classification: restricted
+        contains_pii: true
+        legal_basis: consent
+
+  - name: churn_prediction_model
+    label: Churn prediction model
+    type: ml
+    maturity: low
+    description: |
+      Experimental model. It predicts which active customers will not order in the next 90 days.
+
+      **Status:** proof of concept. Do not use the results for decisions.
+    owner:
+      name: Customer Insights
+      email: customer-insights@jaffle-shop.example
+    depends_on:
+      - ref('customers')
+      - ref('customer_segments')
+      - ref('orders')
+    config:
+      meta:
+        tool: Python notebook
+        classification: confidential

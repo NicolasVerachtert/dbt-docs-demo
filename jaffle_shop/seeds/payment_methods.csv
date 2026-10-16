@@ -1,0 +1,6 @@
+payment_method,payment_method_name,processing_fee_pct,is_new_cash
+credit_card,Credit card,1.75,true
+debit_card,Debit card,0.90,true
+digital_wallet,Digital wallet,1.95,true
+buy_now_pay_later,Buy now pay later,4.00,true
+gift_card,Gift card,0.00,false

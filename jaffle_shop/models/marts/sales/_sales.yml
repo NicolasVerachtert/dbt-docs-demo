@@ -1,0 +1,278 @@
+version: 2
+
+models:
+  - name: orders
+    description: '{{ doc("model_orders") }}'
+    config:
+      contract:
+        enforced: true
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: true
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "order_total = net_item_amount + shipping_amount"
+          description: The order total is equal to the net sales plus the shipping fee.
+      - expression_is_true:
+          arguments:
+            expression: "refund_amount <= amount_paid"
+          description: A refund cannot be more than the amount that the customer paid.
+    columns:
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_type: integer
+        constraints:
+          - type: not_null
+          - type: primary_key
+            warn_unenforced: false
+        data_tests:
+          - unique
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+        data_type: integer
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('customers')
+                field: customer_id
+      - name: order_date
+        description: '{{ doc("order_date") }}'
+        data_type: date
+        constraints:
+          - type: not_null
+      - name: status
+        description: '{{ doc("order_status") }}'
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['placed', 'shipped', 'completed', 'return_pending', 'returned']
+      - name: sales_channel
+        description: '{{ doc("sales_channel") }}'
+        data_type: varchar
+      - name: coupon_code
+        description: '{{ doc("coupon_code") }}'
+        data_type: varchar
+      - name: customer_order_number
+        description: '{{ doc("customer_order_number") }}'
+        data_type: integer
+      - name: is_first_order
+        description: '{{ doc("is_first_order") }}'
+        data_type: boolean
+      - name: item_quantity
+        description: Total number of units in the order.
+        data_type: integer
+      - name: gross_item_amount
+        description: '{{ doc("gross_amount") }}'
+        data_type: decimal(12, 2)
+      - name: discount_amount
+        description: '{{ doc("discount_amount") }}'
+        data_type: decimal(12, 2)
+      - name: net_item_amount
+        description: '{{ doc("net_amount") }}'
+        data_type: decimal(12, 2)
+      - name: shipping_amount
+        description: '{{ doc("shipping_amount") }}'
+        data_type: decimal(12, 2)
+      - name: order_total
+        description: '{{ doc("order_total") }}'
+        data_type: decimal(12, 2)
+        data_tests:
+          - not_negative
+      - name: credit_card_amount
+        description: '{{ doc("payment_method_amount") }}'
+        data_type: decimal(12, 2)
+      - name: debit_card_amount
+        description: '{{ doc("payment_method_amount") }}'
+        data_type: decimal(12, 2)
+      - name: digital_wallet_amount
+        description: '{{ doc("payment_method_amount") }}'
+        data_type: decimal(12, 2)
+      - name: buy_now_pay_later_amount
+        description: '{{ doc("payment_method_amount") }}'
+        data_type: decimal(12, 2)
+      - name: gift_card_amount
+        description: '{{ doc("payment_method_amount") }}'
+        data_type: decimal(12, 2)
+      - name: amount_paid
+        description: '{{ doc("amount_paid") }}'
+        data_type: decimal(12, 2)
+      - name: payment_status
+        description: '{{ doc("order_payment_status") }}'
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['paid']
+              description: Each order must be fully paid. If this test fails, compare the order with the PSP settlement file.
+      - name: payment_fee_amount
+        description: '{{ doc("payment_fee_amount") }}'
+        data_type: decimal(12, 2)
+      - name: refund_amount
+        description: '{{ doc("refund_amount") }}'
+        data_type: decimal(12, 2)
+      - name: net_order_value
+        description: '{{ doc("net_order_value") }}'
+        data_type: decimal(12, 2)
+        data_tests:
+          - not_negative
+
+  - name: order_items
+    description: '{{ doc("model_order_items") }}'
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: true
+    columns:
+      - name: order_item_id
+        description: '{{ doc("order_item_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('orders')
+                field: order_id
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+      - name: order_date
+        description: '{{ doc("order_date") }}'
+      - name: order_status
+        description: '{{ doc("order_status") }}'
+      - name: product_id
+        description: '{{ doc("product_id") }}'
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('products')
+                field: product_id
+      - name: sku
+        description: '{{ doc("sku") }}'
+      - name: product_name
+        description: Name of the product on the web shop.
+      - name: product_category
+        description: '{{ doc("product_category") }}'
+      - name: is_gift_card
+        description: '{{ doc("is_gift_card") }}'
+      - name: is_returnable
+        description: '{{ doc("is_returnable") }}'
+      - name: quantity
+        description: Number of units.
+      - name: unit_price
+        description: '{{ doc("unit_price") }}'
+      - name: gross_amount
+        description: '{{ doc("gross_amount") }}'
+      - name: discount_amount
+        description: '{{ doc("discount_amount") }}'
+      - name: net_amount
+        description: '{{ doc("net_amount") }}'
+      - name: net_amount_excl_gst
+        description: '{{ doc("net_amount_excl_gst") }}'
+      - name: cost_amount
+        description: '{{ doc("cost_amount") }}'
+      - name: gross_margin
+        description: '{{ doc("gross_margin") }}'
+
+  - name: products
+    description: '{{ doc("model_products") }}'
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: true
+    columns:
+      - name: product_id
+        description: '{{ doc("product_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: sku
+        description: '{{ doc("sku") }}'
+        data_tests:
+          - unique
+      - name: product_name
+        description: Name of the product on the web shop.
+      - name: product_category
+        description: '{{ doc("product_category") }}'
+      - name: list_price
+        description: '{{ doc("list_price") }}'
+      - name: unit_cost
+        description: '{{ doc("unit_cost") }}'
+        config:
+          meta: {classification: confidential}
+      - name: list_margin_pct
+        description: |
+          List margin: (list price without GST − unit cost) / list price without GST. A value of 0.55 means 55%. NULL for gift cards.
+        config:
+          meta: {classification: confidential}
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0.30
+                max_value: 1
+              description: Finance target. The list margin of each product is 30% or more. If this test gives a warning, Purchasing must examine the price or the cost.
+              config:
+                severity: warn
+      - name: is_returnable
+        description: '{{ doc("is_returnable") }}'
+      - name: is_active
+        description: True if the web shop sells the product now.
+      - name: launched_on
+        description: Date when the product came on the web shop.
+      - name: order_count
+        description: Number of orders that contain the product.
+      - name: units_sold
+        description: Number of units sold since launch. Includes units in returned orders.
+      - name: units_returned
+        description: Number of units in returned orders. Only for products that can be returned.
+      - name: return_rate
+        description: Return rate. Units returned / units sold. NULL for products that cannot be returned.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: net_sales
+        description: Total net sales of the product since launch, in AUD. Includes GST.
+      - name: gross_margin
+        description: Total gross margin of the product since launch, in AUD. Excludes GST.
+      - name: last_sold_on
+        description: Date of the most recent order with the product.
+
+unit_tests:
+  - name: test_orders_payment_status
+    description: |
+      Checks the payment status rule. An order with a payment equal to the order total is `paid`.
+      An order with a smaller payment is `partially_paid`. An order without a successful payment is `unpaid`.
+    model: orders
+    given:
+      - input: ref('stg_orders')
+        rows:
+          - {order_id: 1, customer_id: 10, order_date: 2026-01-05, shipping_amount: 9.95}
+          - {order_id: 2, customer_id: 10, order_date: 2026-02-05, shipping_amount: 0}
+          - {order_id: 3, customer_id: 11, order_date: 2026-02-06, shipping_amount: 9.95}
+      - input: ref('int_order_items_priced')
+        rows:
+          - {order_id: 1, quantity: 1, gross_amount: 40.00, discount_amount: 0, net_amount: 40.00}
+          - {order_id: 2, quantity: 2, gross_amount: 120.00, discount_amount: 12.00, net_amount: 108.00}
+          - {order_id: 3, quantity: 1, gross_amount: 20.00, discount_amount: 0, net_amount: 20.00}
+      - input: ref('int_order_payments')
+        rows:
+          - {order_id: 1, amount_paid: 49.95, credit_card_amount: 49.95}
+          - {order_id: 2, amount_paid: 100.00, gift_card_amount: 100.00}
+      - input: ref('int_order_refunds')
+        rows:
+          - {order_id: 1, refund_amount: 10.00}
+    expect:
+      rows:
+        - {order_id: 1, customer_order_number: 1, order_total: 49.95, payment_status: paid, net_order_value: 39.95}
+        - {order_id: 2, customer_order_number: 2, order_total: 108.00, payment_status: partially_paid, net_order_value: 108.00}
+        - {order_id: 3, customer_order_number: 1, order_total: 29.95, payment_status: unpaid, net_order_value: 29.95}

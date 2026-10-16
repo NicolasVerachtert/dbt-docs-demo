@@ -1,0 +1,29 @@
+version: 2
+
+data_tests:
+  - name: assert_orders_reconcile_with_payments
+    description: |
+      The total of successful payments in `payments` is equal to the total amount paid in `orders`.
+      If this test fails, Finance cannot close the month. Contact the Data Platform team.
+    config:
+      tags: [finance, reconciliation]
+      meta:
+        owner: Finance
+
+  - name: assert_monthly_revenue_reconciles_with_orders
+    description: |
+      The net sales, shipping fees and refunds in `monthly_revenue` are equal to the totals in `orders`.
+      If this test fails, the monthly report and the order data do not agree.
+    config:
+      tags: [finance, reconciliation]
+      meta:
+        owner: Finance
+
+  - name: assert_crm_audience_has_consent
+    description: |
+      Each customer in `crm_audience` agrees to receive marketing email.
+      This test protects the legal basis (consent) of the CRM audience sync. If this test fails, the sync must stop.
+    config:
+      tags: [privacy]
+      meta:
+        owner: Marketing

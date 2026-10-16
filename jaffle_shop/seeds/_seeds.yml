@@ -1,0 +1,351 @@
+version: 2
+
+# In production, these tables come from the source systems. In this demo
+# project, CSV files (seeds) give the same data. Refer to the overview page.
+
+seeds:
+  # ── Raw extracts (bronze) ──────────────────────────────────────────────────
+  - name: raw_customers
+    description: |
+      Customer accounts from the web shop. One row for each account.
+
+      This is a raw extract. Do not use it for reports. Use `customers`.
+
+      **Known data issues**
+      - `state` has different spellings, for example `NSW`, `nsw` and `New South Wales`.
+      - `state` is empty for some accounts from before 2024-04-01. The web shop did not require the state before that date.
+      - `email` has upper-case letters and spaces for some accounts.
+      - `phone` has different formats.
+    config:
+      group: data_platform
+      meta:
+        source_system: Web shop
+        extract: Daily, full extract at 02:00 AEST
+        classification: restricted
+        contains_pii: true
+      column_types:
+        id: integer
+        first_name: varchar
+        last_name: varchar
+        email: varchar
+        phone: varchar
+        city: varchar
+        state: varchar
+        postcode: varchar
+        acquisition_channel: varchar
+        marketing_opt_in: boolean
+        created_at: timestamp
+    columns:
+      - name: id
+        description: Identifier of the customer account in the web shop.
+      - name: first_name
+        description: First name of the customer.
+        classifiers: [pii.name]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: last_name
+        description: Last name of the customer.
+        classifiers: [pii.name]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: email
+        description: Email address of the customer, as the customer typed it.
+        classifiers: [pii.email]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: phone
+        description: Mobile number of the customer, as the customer typed it. Optional.
+        classifiers: [pii.phone]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: city
+        description: City of the delivery address.
+      - name: state
+        description: State of the delivery address, as the customer typed it.
+      - name: postcode
+        description: Postcode of the delivery address.
+        classifiers: [pii.location]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: acquisition_channel
+        description: Marketing channel that brought the customer to the web shop.
+      - name: marketing_opt_in
+        description: True if the customer agrees to receive marketing email.
+      - name: created_at
+        description: Date and time (AEST) when the customer created the account.
+
+  - name: raw_orders
+    description: |
+      Orders from the web shop and the mobile app. One row for each order.
+
+      This is a raw extract. Do not use it for reports. Use `orders`.
+    config:
+      group: data_platform
+      meta:
+        source_system: Web shop
+        extract: Daily, full extract at 02:00 AEST
+        classification: internal
+        contains_pii: false
+      column_types:
+        id: integer
+        user_id: integer
+        order_date: date
+        status: varchar
+        sales_channel: varchar
+        coupon_code: varchar
+        shipping_fee: integer
+    columns:
+      - name: id
+        description: Identifier of the order in the web shop.
+      - name: user_id
+        description: Identifier of the customer account. The web shop calls the customer a "user".
+      - name: order_date
+        description: Date (AEST) when the customer placed the order.
+      - name: status
+        description: Status of the order in the web shop.
+      - name: sales_channel
+        description: Channel of the order, `web` or `app`.
+      - name: coupon_code
+        description: Coupon code that the customer used. Empty if the customer did not use a coupon.
+      - name: shipping_fee
+        description: Shipping fee in cents (AUD).
+
+  - name: raw_order_items
+    description: |
+      Order lines from the web shop. One row for each product in an order.
+
+      This is a raw extract. Do not use it for reports. Use `order_items`.
+    config:
+      group: data_platform
+      meta:
+        source_system: Web shop
+        extract: Daily, full extract at 02:00 AEST
+        classification: internal
+        contains_pii: false
+      column_types:
+        id: integer
+        order_id: integer
+        product_id: integer
+        quantity: integer
+        unit_price: integer
+        discount_amount: integer
+    columns:
+      - name: id
+        description: Identifier of the order line.
+      - name: order_id
+        description: Identifier of the order.
+      - name: product_id
+        description: Identifier of the product.
+      - name: quantity
+        description: Number of units.
+      - name: unit_price
+        description: Price of one unit on the order date, in cents (AUD). Includes GST.
+      - name: discount_amount
+        description: Coupon discount on the line, in cents (AUD).
+
+  - name: raw_products
+    description: |
+      Product catalogue from the web shop. One row for each product.
+
+      This is a raw extract. Do not use it for reports. Use `products`.
+    config:
+      group: data_platform
+      meta:
+        source_system: Web shop
+        extract: Daily, full extract at 02:00 AEST
+        classification: confidential
+        contains_pii: false
+      column_types:
+        id: integer
+        sku: varchar
+        name: varchar
+        category: varchar
+        price: integer
+        cost: integer
+        is_active: boolean
+        launched_on: date
+    columns:
+      - name: id
+        description: Identifier of the product.
+      - name: sku
+        description: Stock keeping unit (SKU). The warehouse uses this code.
+      - name: name
+        description: Name of the product on the web shop.
+      - name: category
+        description: Product category code.
+      - name: price
+        description: Current list price in cents (AUD). Includes GST.
+      - name: cost
+        description: Current purchase cost of one unit in cents (AUD). Excludes GST.
+        config:
+          meta: {classification: confidential}
+      - name: is_active
+        description: True if the web shop sells the product now.
+      - name: launched_on
+        description: Date when the product came on the web shop.
+
+  - name: raw_payments
+    description: |
+      Payment transactions from the payment service provider (PSP). One row for each payment attempt.
+
+      The file contains failed attempts. Only payments with the status `success` move money.
+
+      This is a raw extract. Do not use it for reports. Use `payments`.
+    config:
+      group: data_platform
+      meta:
+        source_system: Payment service provider
+        extract: Daily settlement file at 04:00 AEST
+        classification: confidential
+        contains_pii: false
+      column_types:
+        id: integer
+        order_id: integer
+        payment_method: varchar
+        status: varchar
+        amount: integer
+        created_at: timestamp
+    columns:
+      - name: id
+        description: Identifier of the payment at the PSP.
+      - name: order_id
+        description: Identifier of the order in the web shop.
+      - name: payment_method
+        description: Payment method code.
+      - name: status
+        description: Result of the payment attempt, `success` or `failed`.
+      - name: amount
+        description: Amount in cents (AUD).
+      - name: created_at
+        description: Date and time (AEST) of the payment attempt.
+
+  - name: raw_refunds
+    description: |
+      Refunds from the payment service provider (PSP). One row for each refund.
+
+      This is a raw extract. Do not use it for reports. Use `orders` or `monthly_revenue`.
+    config:
+      group: data_platform
+      meta:
+        source_system: Payment service provider
+        extract: Daily settlement file at 04:00 AEST
+        classification: confidential
+        contains_pii: false
+      column_types:
+        id: integer
+        order_id: integer
+        amount: integer
+        reason: varchar
+        refunded_at: timestamp
+    columns:
+      - name: id
+        description: Identifier of the refund at the PSP.
+      - name: order_id
+        description: Identifier of the order in the web shop.
+      - name: amount
+        description: Refund amount in cents (AUD).
+      - name: reason
+        description: Reason code that customer service selected.
+      - name: refunded_at
+        description: Date and time (AEST) when the PSP paid the refund.
+
+  - name: raw_marketing_spend
+    description: |
+      Monthly marketing spend for each paid channel. One row for each month and channel.
+
+      The marketing team keeps this data in a spreadsheet. The team updates it on the 5th working day of each month.
+
+      This is a raw extract. Do not use it for reports. Use `marketing_channel_performance`.
+    config:
+      group: data_platform
+      meta:
+        source_system: Marketing spreadsheet
+        extract: Monthly, manual upload
+        classification: confidential
+        contains_pii: false
+      column_types:
+        month: date
+        channel: varchar
+        spend_aud: decimal(12, 2)
+    columns:
+      - name: month
+        description: First day of the month.
+      - name: channel
+        description: Channel name, as the marketing team types it, for example `Paid social`.
+      - name: spend_aud
+        description: Spend in AUD, excluding GST.
+
+  # ── Reference data ─────────────────────────────────────────────────────────
+  - name: au_states
+    description: |
+      Australian states and territories, with the sales region of each.
+
+      The data platform team maintains this file. To change a sales region, make a pull request.
+    config:
+      group: data_platform
+      meta:
+        source_system: Maintained in this project
+        classification: public
+        contains_pii: false
+      column_types:
+        state_code: varchar
+        state_name: varchar
+        sales_region: varchar
+    columns:
+      - name: state_code
+        description: Official abbreviation of the state, for example `NSW`.
+        data_tests:
+          - unique
+          - not_null
+      - name: state_name
+        description: Full name of the state, for example `New South Wales`.
+        data_tests:
+          - unique
+          - not_null
+      - name: sales_region
+        description: '{{ doc("sales_region") }}'
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['East', 'North', 'South', 'West']
+
+  - name: payment_methods
+    description: |
+      Payment methods that the web shop accepts, with the fee that the PSP charges.
+
+      Finance maintains this file. To change a fee, make a pull request. Finance must approve it.
+    config:
+      group: finance
+      meta:
+        source_system: Maintained in this project
+        classification: internal
+        contains_pii: false
+      column_types:
+        payment_method: varchar
+        payment_method_name: varchar
+        processing_fee_pct: decimal(5, 2)
+        is_new_cash: boolean
+    columns:
+      - name: payment_method
+        description: '{{ doc("payment_method") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: payment_method_name
+        description: Display name of the payment method.
+      - name: processing_fee_pct
+        description: Fee that the PSP charges, as a percentage of the amount.
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 10
+      - name: is_new_cash
+        description: '{{ doc("is_new_cash") }}'

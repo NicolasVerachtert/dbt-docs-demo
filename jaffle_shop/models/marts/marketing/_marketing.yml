@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: marketing_channel_performance
+    description: '{{ doc("model_marketing_channel_performance") }}'
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: true
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['performance_month', 'acquisition_channel']
+      - expression_is_true:
+          arguments:
+            expression: "channel_type = 'unpaid' or spend_amount is not null"
+          description: Each paid channel has a spend value for each month. If this test fails, the marketing spreadsheet is not complete.
+          config:
+            severity: warn
+    columns:
+      - name: performance_month
+        description: First day of the month.
+        data_tests:
+          - not_null
+      - name: acquisition_channel
+        description: '{{ doc("acquisition_channel") }}'
+        data_tests:
+          - not_null
+      - name: channel_type
+        description: '`paid` if Jaffle Shop pays for the channel. Else `unpaid`.'
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['paid', 'unpaid']
+      - name: spend_amount
+        description: Marketing spend in the month, in AUD. Excludes GST. NULL for unpaid channels.
+      - name: new_customers
+        description: Number of customers from the channel with the first order in the month.
+      - name: first_order_revenue
+        description: Net sales of the first orders of the new customers, in AUD. Excludes GST.
+      - name: customer_acquisition_cost
+        description: '{{ doc("customer_acquisition_cost") }}'
+      - name: first_order_roas
+        description: '{{ doc("first_order_roas") }}'
+
+  - name: crm_audience
+    description: '{{ doc("model_crm_audience") }}'
+    config:
+      access: protected
+      meta:
+        classification: restricted
+        contains_pii: true
+        certified: true
+        legal_basis: consent
+        privacy_review: 2025-11-04
+    columns:
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: first_name
+        description: First name of the customer. The CRM tool uses it in the greeting of the email.
+        classifiers: [pii.name]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: email
+        description: Email address of the customer. Lower-case, without spaces.
+        classifiers: [pii.email]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+        data_tests:
+          - not_null
+          - unique
+      - name: state_code
+        description: '{{ doc("state_code") }}'
+      - name: customer_status
+        description: '{{ doc("customer_status") }}'
+      - name: rfm_segment
+        description: |
+          Customer segment. Refer to `customer_segments`. The value is `prospect` if the customer has no orders.
+      - name: most_recent_order_date
+        description: Date of the most recent order of the customer.
+      - name: lifetime_value_band
+        description: |
+          Band of the lifetime value, in AUD: `0`, `1-99`, `100-249`, `250-499` or `500+`. The CRM tool does not get the exact value.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['0', '1-99', '100-249', '250-499', '500+']

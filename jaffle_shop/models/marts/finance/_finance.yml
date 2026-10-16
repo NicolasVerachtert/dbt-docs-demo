@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: payments
+    description: '{{ doc("model_payments") }}'
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: true
+    columns:
+      - name: payment_id
+        description: '{{ doc("payment_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: '{{ doc("order_id") }}'
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('orders')
+                field: order_id
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+      - name: created_at
+        description: Date and time (AEST) of the payment attempt.
+      - name: payment_date
+        description: Date (AEST) of the payment attempt.
+      - name: payment_method
+        description: '{{ doc("payment_method") }}'
+      - name: payment_method_name
+        description: Display name of the payment method.
+        data_tests:
+          - not_null:
+              description: Each payment method has a name. If this test fails, add the new payment method to the seed `payment_methods`.
+      - name: payment_status
+        description: '{{ doc("payment_attempt_status") }}'
+      - name: amount
+        description: Amount of the payment attempt, in AUD.
+      - name: processing_fee_pct
+        description: Fee that the PSP charges for this payment method, as a percentage of the amount.
+      - name: payment_fee_amount
+        description: Fee that the PSP charges for this payment, in AUD. Zero for failed payments.
+      - name: is_new_cash
+        description: '{{ doc("is_new_cash") }}'
+
+  - name: monthly_revenue
+    description: '{{ doc("model_monthly_revenue") }}'
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: true
+    columns:
+      - name: revenue_month
+        description: First day of the month.
+        data_tests:
+          - unique
+          - not_null
+      - name: order_count
+        description: Number of orders in the month.
+      - name: first_order_count
+        description: Number of first orders in the month. Each first order is a new customer.
+      - name: gross_sales
+        description: Gross sales in the month, in AUD. Includes GST. Excludes gift cards.
+      - name: discount_amount
+        description: Coupon discounts in the month, in AUD. Includes GST.
+      - name: net_sales
+        description: Net sales in the month, in AUD. Gross sales minus discounts. Includes GST. Excludes gift cards and shipping fees.
+      - name: shipping_revenue
+        description: Shipping fees in the month, in AUD. Includes GST.
+      - name: refund_amount
+        description: Refunds paid in the month, in AUD. Includes GST. The order can be from an earlier month.
+      - name: net_revenue_incl_gst
+        description: Net sales plus shipping fees minus refunds, in AUD. Includes GST.
+      - name: net_revenue
+        description: |
+          **Net revenue**, the main revenue value for reports. Net sales plus shipping fees minus refunds, without GST, in AUD. Excludes gift card sales.
+        data_tests:
+          - not_null
+      - name: cost_of_goods_sold
+        description: Cost of the goods sold in the month, in AUD. Excludes GST and gift cards.
+      - name: gross_margin
+        description: '{{ doc("gross_margin") }}'
+      - name: gross_margin_pct
+        description: Gross margin divided by net sales without GST. A value of 0.55 means 55%.
+        data_tests:
+          - accepted_range:
+              arguments: {min_value: 0, max_value: 1}
+      - name: payment_fee_amount
+        description: Fees that the PSP charged in the month, in AUD.
+      - name: gift_card_sales
+        description: Sales of gift cards in the month, in AUD. This is not revenue. Finance records it as a liability.

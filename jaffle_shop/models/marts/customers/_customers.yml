@@ -1,0 +1,251 @@
+version: 2
+
+models:
+  - name: customers
+    description: '{{ doc("model_customers") }}'
+    config:
+      contract:
+        enforced: true
+      meta:
+        classification: restricted
+        contains_pii: true
+        certified: true
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "first_order_date is null or first_order_date >= signup_date"
+          description: A customer cannot order before the signup date.
+    columns:
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+        data_type: integer
+        constraints:
+          - type: not_null
+          - type: primary_key
+            warn_unenforced: false
+        data_tests:
+          - unique
+      - name: first_name
+        description: First name of the customer.
+        data_type: varchar
+        classifiers: [pii.name]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: last_name
+        description: Last name of the customer.
+        data_type: varchar
+        classifiers: [pii.name]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: email
+        description: Email address of the customer. Lower-case, without spaces.
+        data_type: varchar
+        classifiers: [pii.email]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: phone
+        description: Mobile number of the customer in E.164 format. NULL if the customer did not give a number.
+        data_type: varchar
+        classifiers: [pii.phone]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: city
+        description: City of the delivery address.
+        data_type: varchar
+      - name: state_code
+        description: '{{ doc("state_code") }}'
+        data_type: varchar
+        data_tests:
+          - not_null:
+              description: Known issue. Refer to the same test on `stg_customers`.
+              config:
+                severity: error
+                warn_if: ">0"
+                error_if: ">50"
+      - name: state_name
+        description: Full name of the state, for example `New South Wales`.
+        data_type: varchar
+      - name: sales_region
+        description: '{{ doc("sales_region") }}'
+        data_type: varchar
+      - name: postcode
+        description: Postcode of the delivery address.
+        data_type: varchar
+        classifiers: [pii.location]
+        config:
+          tags: [pii]
+          meta: {classification: restricted}
+      - name: acquisition_channel
+        description: '{{ doc("acquisition_channel") }}'
+        data_type: varchar
+      - name: is_marketing_opt_in
+        description: '{{ doc("is_marketing_opt_in") }}'
+        data_type: boolean
+      - name: signup_date
+        description: '{{ doc("signup_date") }}'
+        data_type: date
+      - name: first_order_date
+        description: Date of the first order of the customer. NULL if the customer has no orders.
+        data_type: date
+      - name: most_recent_order_date
+        description: Date of the most recent order of the customer. NULL if the customer has no orders.
+        data_type: date
+      - name: number_of_orders
+        description: Number of orders of the customer. Includes returned orders.
+        data_type: integer
+        data_tests:
+          - not_negative
+      - name: lifetime_value
+        description: '{{ doc("lifetime_value") }}'
+        data_type: decimal(12, 2)
+        data_tests:
+          - not_negative
+      - name: average_order_value
+        description: '{{ doc("average_order_value") }}'
+        data_type: decimal(12, 2)
+      - name: days_since_last_order
+        description: '{{ doc("days_since_last_order") }}'
+        data_type: integer
+      - name: customer_status
+        description: '{{ doc("customer_status") }}'
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['prospect', 'active', 'lapsed']
+
+  - name: customer_rfm_scores
+    description: '{{ doc("model_customer_rfm_scores") }}'
+    config:
+      access: private
+      materialized: view
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: false
+    columns:
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: recency_days
+        description: '{{ doc("days_since_last_order") }}'
+      - name: frequency
+        description: Number of orders of the customer.
+      - name: monetary_value
+        description: '{{ doc("lifetime_value") }}'
+      - name: recency_score
+        description: '{{ doc("recency_score") }}'
+        data_tests:
+          - accepted_range:
+              arguments: {min_value: 1, max_value: 5}
+      - name: frequency_score
+        description: '{{ doc("frequency_score") }}'
+        data_tests:
+          - accepted_range:
+              arguments: {min_value: 1, max_value: 5}
+      - name: monetary_score
+        description: '{{ doc("monetary_score") }}'
+        data_tests:
+          - accepted_range:
+              arguments: {min_value: 1, max_value: 5}
+
+  - name: customer_segments
+    description: '{{ doc("model_customer_segments") }}'
+    config:
+      meta:
+        classification: confidential
+        contains_pii: false
+        certified: true
+    columns:
+      - name: customer_id
+        description: '{{ doc("customer_id") }}'
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('customers')
+                field: customer_id
+      - name: recency_days
+        description: '{{ doc("days_since_last_order") }}'
+      - name: frequency
+        description: Number of orders of the customer.
+      - name: monetary_value
+        description: '{{ doc("lifetime_value") }}'
+      - name: recency_score
+        description: '{{ doc("recency_score") }}'
+      - name: frequency_score
+        description: '{{ doc("frequency_score") }}'
+      - name: monetary_score
+        description: '{{ doc("monetary_score") }}'
+      - name: rfm_code
+        description: The three scores as one code, in the sequence R, F, M. For example, `541` means R = 5, F = 4 and M = 1.
+      - name: rfm_segment
+        description: '{{ doc("rfm_segment") }}'
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['champions', 'loyal', 'new_customers', 'at_risk', 'lost', 'hibernating', 'needs_attention']
+
+  - name: customer_cohorts
+    description: '{{ doc("model_customer_cohorts") }}'
+    config:
+      meta:
+        classification: internal
+        contains_pii: false
+        certified: false
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['cohort_month', 'months_since_first_order']
+    columns:
+      - name: cohort_month
+        description: First day of the month of the first order of the customers in the cohort.
+        data_tests:
+          - not_null
+      - name: months_since_first_order
+        description: Number of months after the month of the first order. Month 0 is the month of the first order.
+        data_tests:
+          - not_negative
+      - name: cohort_size
+        description: Number of customers in the cohort.
+      - name: active_customers
+        description: Number of customers of the cohort with one or more orders in the month.
+      - name: retention_rate
+        description: '{{ doc("retention_rate") }}'
+        data_tests:
+          - accepted_range:
+              arguments: {min_value: 0, max_value: 1}
+
+unit_tests:
+  - name: test_customer_segments_rules
+    description: |
+      Checks the segment rules. Each row has a different combination of scores.
+      The test also checks that the first matching rule gives the segment.
+    model: customer_segments
+    given:
+      - input: ref('customer_rfm_scores')
+        rows:
+          - {customer_id: 1, recency_score: 5, frequency_score: 5, monetary_score: 5}
+          - {customer_id: 2, recency_score: 3, frequency_score: 3, monetary_score: 2}
+          - {customer_id: 3, recency_score: 5, frequency_score: 1, monetary_score: 1}
+          - {customer_id: 4, recency_score: 2, frequency_score: 4, monetary_score: 4}
+          - {customer_id: 5, recency_score: 1, frequency_score: 1, monetary_score: 1}
+          - {customer_id: 6, recency_score: 2, frequency_score: 2, monetary_score: 3}
+          - {customer_id: 7, recency_score: 4, frequency_score: 2, monetary_score: 3}
+    expect:
+      rows:
+        - {customer_id: 1, rfm_code: '555', rfm_segment: champions}
+        - {customer_id: 2, rfm_code: '332', rfm_segment: loyal}
+        - {customer_id: 3, rfm_code: '511', rfm_segment: new_customers}
+        - {customer_id: 4, rfm_code: '244', rfm_segment: at_risk}
+        - {customer_id: 5, rfm_code: '111', rfm_segment: lost}
+        - {customer_id: 6, rfm_code: '223', rfm_segment: hibernating}
+        - {customer_id: 7, rfm_code: '423', rfm_segment: needs_attention}

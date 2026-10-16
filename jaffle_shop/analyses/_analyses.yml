@@ -1,0 +1,7 @@
+version: 2
+
+analyses:
+  - name: net_revenue_by_sales_region
+    description: |
+      Net order value and number of customers for each sales region and year. The sales team uses this query for the yearly targets.
+      An analysis does not make a table. Run `dbt compile` and copy the SQL from `target/compiled`.

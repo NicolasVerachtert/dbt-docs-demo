@@ -1,34 +1,93 @@
 name: 'jaffle_shop'
 
 config-version: 2
-version: '0.1'
+version: '1.0.0'
 
 profile: 'jaffle_shop'
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
 test-paths: ["tests"]
-analysis-paths: ["analysis"]
+analysis-paths: ["analyses"]
 macro-paths: ["macros"]
 
 target-path: "target"
 clean-targets:
     - "target"
-    - "dbt_modules"
+    - "dbt_packages"
     - "logs"
 
 require-dbt-version: [">=1.11.0", "<3.0.0"]  # dbt v1 (1.11) and dbt v2 can run this project.
 
-seeds: 
-  +docs:
-    node_color: '#cd7f32'
+flags:
+  require_generic_test_arguments_property: true
+
+# The layers follow the medallion pattern: bronze (raw), silver (staging and
+# intermediate) and gold (marts). Refer to the overview page of the docs.
+seeds:
+  jaffle_shop:
+    +schema: raw
+    +meta:
+      domain: Platform
+      data_steward: Data Platform Lead
+      certified: false
+    +docs:
+      node_color: '#cd7f32'
 
 models:
   jaffle_shop:
-    +materialized: table
     staging:
+      +schema: staging
       +materialized: view
+      +group: data_platform
+      +access: protected
+      +meta:
+        domain: Platform
+        data_steward: Data Platform Lead
+        certified: false
       +docs:
         node_color: 'silver'
-    +docs:
-      node_color: 'gold'
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+      +group: data_platform
+      +access: protected
+      +meta:
+        domain: Platform
+        data_steward: Data Platform Lead
+        certified: false
+      +docs:
+        node_color: 'silver'
+    marts:
+      +schema: marts
+      +materialized: table
+      +access: public
+      +docs:
+        node_color: 'gold'
+      sales:
+        +group: sales
+        +meta:
+          domain: Sales
+          data_steward: Head of Sales Operations
+      customers:
+        +group: customer_insights
+        +meta:
+          domain: Customers
+          data_steward: Customer Insights Lead
+      finance:
+        +group: finance
+        +meta:
+          domain: Finance
+          data_steward: Financial Controller
+      marketing:
+        +group: marketing
+        +meta:
+          domain: Marketing
+          data_steward: Marketing Analytics Manager
+
+vars:
+  # Payment methods that get a separate amount column in `orders`. Keep this
+  # list the same as the seed `payment_methods`. A test checks it.
+  payment_methods: ['credit_card', 'debit_card', 'digital_wallet', 'buy_now_pay_later', 'gift_card']
+  # GST rate in Australia. Prices to customers include GST.
+  gst_rate: 0.10
